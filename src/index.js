@@ -34,7 +34,7 @@ async function processCall(audioPath) {
   return { transcriptText, statusReport };
 }
 
-// Run directly: node src/index.js <path-to-wav-file>
+// Run directly: node src/index.js <path-to-audio-file>
 const audioArg = process.argv[2];
 if (audioArg) {
   processCall(audioArg).catch((err) => {

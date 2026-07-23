@@ -1,5 +1,6 @@
 import speech from "@google-cloud/speech";
-import fs from "fs";
+import { convertToWav16k, cleanupTempFile } from "../utils/convertAudio.js";
+import { uploadToGCS, deleteFromGCS } from "../utils/gcsUpload.js";
 
 const client = new speech.SpeechClient();
 
@@ -7,42 +8,52 @@ const client = new speech.SpeechClient();
  * Transcribes an audio file with speaker diarization and support for
  * mixed English/Hindi calls (via alternativeLanguageCodes).
  *
- * NOTE: audio must be LINEAR16 (WAV, uncompressed) at the given sample
- * rate for this config. If the org's site delivers mp3/other formats,
- * add a conversion step (e.g. ffmpeg) before calling this function.
- * For audio longer than ~1 minute, Google requires the file to be in
- * Google Cloud Storage rather than sent inline - swap `content` for
- * `uri: "gs://your-bucket/file.wav"` once that's wired up.
+ * Handles any input format (mp3, m4a, etc.) by converting to LINEAR16
+ * WAV first, and any length by uploading to Google Cloud Storage before
+ * running long-running recognition.
  *
- * @param {string} audioPath - local path to a LINEAR16 WAV file
+ * @param {string} audioPath - local path to the source audio file
  * @returns {Promise<{utterances: {speaker: number, text: string}[], text: string, languageCodes: string[]}>}
  */
 export async function transcribeAudio(audioPath) {
-  const audioBytes = fs.readFileSync(audioPath).toString("base64");
+  console.log("Original file:", audioPath);
 
-  const config = {
-    encoding: "LINEAR16",
-    sampleRateHertz: 16000,
-    languageCode: "en-IN", // primary language
-    alternativeLanguageCodes: ["hi-IN"], // handles Hindi / code-switching
-    enableAutomaticPunctuation: true,
-    diarizationConfig: {
-      enableSpeakerDiarization: true, // required: separates agent vs. caller
-      minSpeakerCount: 2,
-      maxSpeakerCount: 2,
-    },
-    model: "phone_call", // tuned for call center audio
-  };
+  const wavPath = await convertToWav16k(audioPath);
+  console.log("Converted file path:", wavPath);
 
-  const request = {
-    audio: { content: audioBytes },
-    config,
-  };
+  let gcsUri;
 
-  const [operation] = await client.longRunningRecognize(request);
-  const [response] = await operation.promise();
+  try {
+    gcsUri = await uploadToGCS(wavPath);
+    console.log("Uploaded to GCS:", gcsUri);
 
-  return buildUtterances(response);
+    const config = {
+      encoding: "LINEAR16",
+      sampleRateHertz: 16000,
+      languageCode: "en-IN", // primary language
+      alternativeLanguageCodes: ["hi-IN"], // handles Hindi / code-switching
+      enableAutomaticPunctuation: true,
+      diarizationConfig: {
+        enableSpeakerDiarization: true, // required: separates agent vs. caller
+        minSpeakerCount: 2,
+        maxSpeakerCount: 2,
+      },
+      model: "default", // phone_call model doesn't support alternativeLanguageCodes
+    };
+
+    const request = {
+      audio: { uri: gcsUri },
+      config,
+    };
+
+    const [operation] = await client.longRunningRecognize(request);
+    const [response] = await operation.promise();
+
+    return buildUtterances(response);
+  } finally {
+    cleanupTempFile(wavPath);
+    if (gcsUri) await deleteFromGCS(gcsUri);
+  }
 }
 
 /**

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Call Analysis Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --border: #262a33;
+    --text: #e6e8eb;
+    --text-muted: #8b909c;
+    --accent: #4f8cff;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px;
+  }
+  h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+  p.subtitle { color: var(--text-muted); font-size: 14px; margin-top: 0; margin-bottom: 28px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .upload-row { display: flex; gap: 12px; align-items: center; }
+  input[type="file"] { color: var(--text-muted); font-size: 13px; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status-bar { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 13px; color: var(--text-muted); }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.2s;
+  }
+  .status-dot.active { background: var(--accent); }
+  .status-dot.done { background: var(--green); }
+  .status-dot.error { background: var(--red); }
+  .status-steps { display: flex; gap: 18px; }
+  .status-step { display: flex; align-items: center; gap: 6px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+
+  .badge {
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 12px;
+    display: inline-block;
+  }
+  .badge.positive { background: rgba(52,211,153,0.15); color: var(--green); }
+  .badge.neutral  { background: rgba(139,144,156,0.15); color: var(--text-muted); }
+  .badge.negative { background: rgba(248,113,113,0.15); color: var(--red); }
+
+  .empty-state { color: var(--text-muted); font-size: 13px; padding: 20px 0; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>Call analysis dashboard</h1>
+<p class="subtitle">Upload agent call recordings to transcribe and score tone &amp; handling quality.</p>
+
+<div class="card">
+  <div class="upload-row">
+    <input type="file" id="audioFile" accept="audio/*">
+    <button id="uploadBtn">Analyze call</button>
+  </div>
+
+  <div class="status-bar" id="statusBar" style="display:none;">
+    <div class="status-steps">
+      <div class="status-step"><span class="status-dot" id="dot-upload"></span> Uploading</div>
+      <div class="status-step"><span class="status-dot" id="dot-transcribe"></span> Transcribing</div>
+      <div class="status-step"><span class="status-dot" id="dot-analyze"></span> Analyzing</div>
+      <div class="status-step"><span class="status-dot" id="dot-done"></span> Done</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <!--
+    Table columns are intentionally minimal for now (tone, response,
+    handling score). To add a new metric (e.g. "compliance",
+    "resolution status"), add a <th> here and a matching <td> in
+    renderRow() below - the row-rendering logic pulls from
+    call.statusReport, so any new field returned by the API can be
+    wired in without touching the upload/status logic.
+  -->
+  <table id="callsTable">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Language(s)</th>
+        <th>Tone</th>
+        <th>Handling score</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="callsBody">
+      <tr><td colspan="5" class="empty-state">No calls analyzed yet.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const fileInput = document.getElementById("audioFile");
+const uploadBtn = document.getElementById("uploadBtn");
+const statusBar = document.getElementById("statusBar");
+const callsBody = document.getElementById("callsBody");
+
+const dots = {
+  upload: document.getElementById("dot-upload"),
+  transcribe: document.getElementById("dot-transcribe"),
+  analyze: document.getElementById("dot-analyze"),
+  done: document.getElementById("dot-done"),
+};
+
+function setStep(step, state) {
+  dots[step].className = "status-dot " + state;
+}
+
+function resetStatus() {
+  Object.keys(dots).forEach((k) => (dots[k].className = "status-dot"));
+}
+
+function toneBadge(tone) {
+  const cls = tone === "positive" ? "positive" : tone === "negative" ? "negative" : "neutral";
+  return `<span class="badge ${cls}">${tone || "unknown"}</span>`;
+}
+
+function renderRow(fileName, report) {
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td>${fileName}</td>
+    <td>${(report.detectedLanguages || []).join(", ") || "—"}</td>
+    <td>${toneBadge(report.overallTone)}</td>
+    <td>${report.handlingScore ?? "—"}</td>
+    <td>Complete</td>
+  `;
+  if (callsBody.querySelector(".empty-state")) callsBody.innerHTML = "";
+  callsBody.prepend(row);
+}
+
+uploadBtn.addEventListener("click", async () => {
+  const file = fileInput.files[0];
+  if (!file) return alert("Choose an audio file first.");
+
+  uploadBtn.disabled = true;
+  statusBar.style.display = "flex";
+  resetStatus();
+  setStep("upload", "active");
+
+  const formData = new FormData();
+  formData.append("audio", file);
+
+  try {
+    const res = await fetch("/calls", { method: "POST", body: formData });
+    setStep("upload", "done");
+    setStep("transcribe", "active");
+    setStep("analyze", "active");
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Request failed");
+
+    setStep("transcribe", "done");
+    setStep("analyze", "done");
+    setStep("done", "done");
+
+    renderRow(file.name, data.statusReport);
+  } catch (err) {
+    setStep("upload", "error");
+    alert("Failed: " + err.message);
+  } finally {
+    uploadBtn.disabled = false;
+    setTimeout(() => (statusBar.style.display = "none"), 1500);
+  }
+});
+</script>
+
+</body>
+</html>
