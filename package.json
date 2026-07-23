@@ -1,0 +1,15 @@
+{
+  "name": "voice-analysis-module",
+  "version": "0.1.0",
+  "description": "Converts agent call audio into text and analyzes tone/handling quality",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "process": "node src/index.js"
+  },
+  "dependencies": {
+    "@google-cloud/speech": "^6.7.0",
+    "@google-cloud/language": "^6.5.0",
+    "dotenv": "^16.4.5"
+  }
+}
