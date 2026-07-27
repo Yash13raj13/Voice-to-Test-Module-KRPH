@@ -38,7 +38,20 @@ export async function transcribeAudio(audioPath) {
         minSpeakerCount: 2,
         maxSpeakerCount: 2,
       },
-      model: "default", // phone_call model doesn't support alternativeLanguageCodes
+      model: "latest_long", // better accuracy for conversational speech than "default"
+      useEnhanced: true,
+      speechContexts: [
+        {
+          // Domain-specific vocabulary Google should weight higher.
+          // Expand this list with real terms your org's agents actually use.
+          phrases: [
+            "insurance", "policy", "premium", "claim", "crop insurance",
+            "farmer", "coverage", "corporate insurance", "renewal",
+            "policyholder", "sum insured", "beema", "fasal", "kisan",
+          ],
+          boost: 15,
+        },
+      ],
     };
 
     const request = {
