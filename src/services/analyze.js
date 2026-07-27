@@ -1,12 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
 /**
- * Scores each utterance's sentiment via Claude (handles English, Hindi,
- * and mixed-language text natively, unlike Google's Natural Language API
- * which doesn't support Hindi for sentiment analysis), then rolls that
- * up into a per-speaker tone summary and a handling score for the agent.
+ * Scores each utterance's sentiment via Gemini (handles English, Hindi,
+ * and mixed-language text natively), then rolls that up into a
+ * per-speaker tone summary and a handling score for the agent.
  *
  * Assumption (to revisit): the first speaker to talk is treated as the
  * agent, since that's the common pattern for call center recordings.
@@ -71,29 +71,20 @@ export async function analyzeCall(utterances) {
 }
 
 /**
- * Sends all utterances to Claude in a single request and gets back a
- * sentiment label per utterance - one API call per call recording,
- * not one per utterance.
+ * Sends all utterances to Gemini in a single request and gets back a
+ * sentiment label per utterance - one API call per call recording.
  */
 async function scoreSentiments(utterances) {
   const numbered = utterances
     .map((u, i) => `${i}. [Speaker ${u.speaker}] ${u.text}`)
     .join("\n");
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2000,
-    messages: [
-      {
-        role: "user",
-        content: `Classify the sentiment of each numbered utterance below as exactly one of POSITIVE, NEUTRAL, or NEGATIVE. The utterances may be in English, Hindi, or mixed. Respond with ONLY a JSON array of strings (no other text), one sentiment per utterance, in the same order.
+  const prompt = `Classify the sentiment of each numbered utterance below as exactly one of POSITIVE, NEUTRAL, or NEGATIVE. The utterances may be in English, Hindi, or mixed. Respond with ONLY a JSON array of strings (no other text), one sentiment per utterance, in the same order.
 
-${numbered}`,
-      },
-    ],
-  });
+${numbered}`;
 
-  const raw = message.content[0].text.trim();
+  const result = await model.generateContent(prompt);
+  const raw = result.response.text().trim();
   const cleaned = raw.replace(/^```json\s*|\s*```$/g, "");
   return JSON.parse(cleaned);
 }

@@ -49,7 +49,11 @@ export async function transcribeAudio(audioPath) {
     const [operation] = await client.longRunningRecognize(request);
     const [response] = await operation.promise();
 
-    return buildUtterances(response);
+    const result = buildUtterances(response);
+    console.log("Unique speaker tags found:", [...new Set(result.utterances.map((u) => u.speaker))]);
+    console.log("Utterance count:", result.utterances.length);
+
+    return result;
   } finally {
     cleanupTempFile(wavPath);
     if (gcsUri) await deleteFromGCS(gcsUri);
