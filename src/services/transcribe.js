@@ -1,29 +1,18 @@
 import { SarvamAIClient } from "sarvamai";
-import fs from "fs/promises";
+import fs from "fs";
+import os from "os";
 import path from "path";
 
-const client = new SarvamAIClient({
-  apiSubscriptionKey: process.env.SARVAM_API_KEY,
-});
+const client = new SarvamAIClient({ apiSubscriptionKey: process.env.SARVAM_API_KEY });
 
 /**
  * Transcribes an audio file with speaker diarization via Sarvam AI's
- * Batch Speech-to-Text API (model: saaras:v3), which is built for
- * Indian-language call audio and Hindi/English code-mixing.
+ * Batch Speech-to-Text API - chosen because Google's diarization proved
+ * unreliable for Hindi/mixed audio across both STT API versions.
  *
- * Replaces the previous Google Cloud Speech-to-Text V2 implementation,
- * which could not reliably separate speakers on Hindi audio (confirmed
- * in output/1785223976691-91280119.status.json - the whole call
- * collapsed into a single speaker).
- *
- * NOTE ON JS SDK METHOD NAMES: Sarvam's docs show the batch job workflow
- * (create_job / upload_files / start / wait_until_complete /
- * get_file_results / download_outputs) using their Python SDK. The npm
- * package "sarvamai" is generated from the same spec via Fern and should
- * mirror this in camelCase, but I could not fully confirm the JS names
- * from their docs site. After `npm install`, check node_modules/sarvamai's
- * TypeScript types (or your editor's autocomplete on
- * `client.speechToTextJob`) and adjust the calls below if they differ.
+ * Sarvam handles file upload to its own storage internally, and
+ * auto-detects MP3/WAV formats, so no ffmpeg conversion or GCS upload
+ * is needed here anymore.
  *
  * @param {string} audioPath - local path to the source audio file
  * @returns {Promise<{utterances: {speaker: string, text: string}[], text: string, languageCodes: string[]}>}
@@ -34,45 +23,60 @@ export async function transcribeAudio(audioPath) {
   const job = await client.speechToTextJob.createJob({
     model: "saaras:v3",
     mode: "transcribe",
-    // languageCode intentionally omitted to let Sarvam auto-detect - useful
-    // for mixed Hindi/English calls. Pass e.g. languageCode: "hi-IN" if you
-    // want to force a single language instead - worth A/B testing both
-    // against real sample calls before deciding.
+    languageCode: "hi-IN", // TEMPORARY: Hindi only, to confirm diarization works before adding English/mixed back
     withDiarization: true,
-    numSpeakers: 2, // agent + one caller; bump for multi-party/escalation calls
+    numSpeakers: 2,
   });
+  console.log("Job created. Available job methods:", Object.getOwnPropertyNames(Object.getPrototypeOf(job)));
 
-  await job.uploadFiles({ filePaths: [audioPath] });
+  await job.uploadFiles([audioPath]);
+  console.log("File uploaded to Sarvam.");
+
   await job.start();
+  console.log("Job started, waiting for completion...");
+
   await job.waitUntilComplete();
+  console.log("Job complete.");
 
   const fileResults = await job.getFileResults();
-  if (fileResults.failed?.length) {
-    const failure = fileResults.failed[0];
-    throw new Error(`Sarvam job failed for ${audioPath}: ${failure.errorMessage}`);
+  console.log("Successful files:", fileResults.successful?.length, "Failed files:", fileResults.failed?.length);
+  console.log("Raw fileResults object:", JSON.stringify(fileResults, null, 2));
+
+  if (!fileResults.successful || fileResults.successful.length === 0) {
+    const reason = fileResults.failed?.[0]?.errorMessage || fileResults.failed?.[0]?.error_message || "Unknown error";
+    throw new Error(`Sarvam transcription failed: ${reason}`);
   }
 
-  const outputDir = "./output/raw";
-  await fs.mkdir(outputDir, { recursive: true });
-  await job.downloadOutputs({ outputDir });
+  const outputDir = path.join(os.tmpdir(), `sarvam-${Date.now()}`);
+  await job.downloadOutputs(outputDir);
+  console.log("Outputs downloaded to:", outputDir);
 
-  // Downloaded JSON shape (per Sarvam docs):
-  // { request_id, transcript, timestamps: {...}, diarized_transcript: { entries: [...] }, language_code }
-  const outputFileName = fileResults.successful[0].fileName; // e.g. "0.json"
-  const raw = JSON.parse(await fs.readFile(path.join(outputDir, outputFileName), "utf-8"));
+  const jsonFiles = fs.readdirSync(outputDir).filter((f) => f.endsWith(".json"));
+  console.log("Downloaded JSON files:", jsonFiles);
 
-  const entries = raw.diarized_transcript?.entries ?? [];
-  console.log("Speaker turns found:", entries.length);
-  console.log("Unique speaker IDs:", [...new Set(entries.map((e) => e.speaker_id))]);
+  const resultData = JSON.parse(fs.readFileSync(path.join(outputDir, jsonFiles[0]), "utf-8"));
+  console.log("Raw Sarvam result keys:", Object.keys(resultData));
+
+  return buildUtterances(resultData);
+}
+
+/**
+ * Sarvam's diarized_transcript.entries already comes pre-split by
+ * speaker (unlike Google's word-level tags), so no grouping logic needed.
+ */
+function buildUtterances(resultData) {
+  const entries = resultData.diarized_transcript?.entries || [];
+  console.log("Diarized entries found:", entries.length);
+  console.log("Unique speaker ids:", [...new Set(entries.map((e) => e.speaker_id))]);
 
   const utterances = entries.map((e) => ({
-    speaker: e.speaker_id, // e.g. "0", "1" - matches the {speaker, text} shape analyze.js/formatTranscript.js already expect
+    speaker: e.speaker_id,
     text: e.transcript,
   }));
 
   return {
     utterances,
-    text: raw.transcript || "",
-    languageCodes: raw.language_code ? [raw.language_code] : [],
+    text: resultData.transcript || "",
+    languageCodes: resultData.language_code ? [resultData.language_code] : [],
   };
 }
