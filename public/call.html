@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Call Detail - Call Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .audit-verdict {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 11px;
+    border-radius: 2px;
+    margin-bottom: 10px;
+  }
+  .audit-verdict.addressed { background: var(--green-tint); color: var(--forest-dark); }
+  .audit-verdict.partially_addressed { background: #f2ecd0; color: var(--gold); }
+  .audit-verdict.not_addressed { background: var(--rust-tint); color: var(--rust); }
+  .audit-verdict.not_checked { background: var(--line); color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a href="/index.html" class="wordmark">Call<span>Ledger</span></a>
+    <nav class="tabs">
+      <a href="/index.html">Analyze</a>
+      <a href="/reports.html" class="active">Reports</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <a href="/reports.html" class="back-link">&larr; Back to reports</a>
+  <div id="content">
+    <p class="empty-state">Loading call...</p>
+  </div>
+</div>
+
+<script>
+function toneBadge(tone) {
+  const cls = tone === "positive" ? "positive" : tone === "negative" ? "negative" : "neutral";
+  return `<span class="tone ${cls}">${tone || "unknown"}</span>`;
+}
+
+function auditLabel(verdict) {
+  const map = {
+    addressed: "Addressed",
+    partially_addressed: "Partially addressed",
+    not_addressed: "Not addressed",
+    not_checked: "Not checked",
+  };
+  return map[verdict] || "Not checked";
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function renderTranscript(text) {
+  if (!text) return "(empty transcript)";
+  return text
+    .split("\n\n")
+    .map((block) => {
+      const match = block.match(/^Speaker (\S+):\s*([\s\S]*)$/);
+      if (!match) return block;
+      return `<span class="speaker-label">Speaker ${match[1]}</span>${match[2]}`;
+    })
+    .join("\n\n");
+}
+
+function renderSpeakers(perSpeaker) {
+  const entries = Object.entries(perSpeaker || {});
+  if (entries.length === 0) return "<p style='color:var(--ink-soft); font-size:0.85rem;'>No speaker breakdown available.</p>";
+
+  return `<div class="speaker-grid">` + entries.map(([label, s]) => `
+    <div class="speaker-box">
+      <h4>Speaker ${label} - ${s.role}</h4>
+      <div class="count-row"><span>Utterances</span><span class="mono">${s.utteranceCount}</span></div>
+      <div class="count-row"><span>Positive</span><span class="mono">${s.sentimentCounts.POSITIVE}</span></div>
+      <div class="count-row"><span>Neutral</span><span class="mono">${s.sentimentCounts.NEUTRAL}</span></div>
+      <div class="count-row"><span>Negative</span><span class="mono">${s.sentimentCounts.NEGATIVE}</span></div>
+    </div>
+  `).join("") + `</div>`;
+}
+
+function renderAudit(audit, ticketDescription) {
+  if (!ticketDescription) {
+    return `<p style="color:var(--ink-soft); font-size:0.85rem;">No ticket description was provided for this call.</p>`;
+  }
+  const a = audit || {};
+  return `
+    <span class="audit-verdict ${a.verdict || "not_checked"}">${auditLabel(a.verdict)}</span>
+    ${a.confidence != null ? `<span class="mono" style="color:var(--ink-soft); font-size:0.8rem; margin-left:8px;">${a.confidence}% confidence</span>` : ""}
+    <p style="margin: 10px 0 16px; font-size:0.9rem;">${a.explanation || ""}</p>
+    <div style="border-top:1px dashed var(--line); padding-top:14px;">
+      <h4 style="margin:0 0 8px; font-family: var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft);">Ticket description</h4>
+      <p style="margin:0; font-size:0.88rem; color:var(--ink-soft);">${ticketDescription}</p>
+    </div>
+  `;
+}
+
+async function loadCall() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  const content = document.getElementById("content");
+
+  if (!id) {
+    content.innerHTML = `<p class="empty-state">No call id given.</p>`;
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/reports/${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error("Report not found");
+    const r = await res.json();
+
+    const flagged = (r.handlingScore ?? 100) < 60 || r.endedOnNegative || r.audit?.verdict === "not_addressed";
+    const stampText = flagged ? "Flagged<br>for review" : "Clear";
+
+    content.innerHTML = `
+      <div class="detail-header">
+        <div class="stamp ${flagged ? "flagged" : ""}">${stampText}</div>
+        <div>
+          <h1 class="page-title" style="margin-bottom:2px;">${r.fileName || r.audioFile || "Call"}</h1>
+          <p style="margin:0; color:var(--ink-soft); font-size:0.85rem;">${formatDate(r.createdAt)}</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <dl class="detail-meta">
+          <dt>Overall tone</dt>
+          <dd>${toneBadge(r.overallTone)}</dd>
+          <dt>Handling score</dt>
+          <dd class="mono">${r.handlingScore ?? "-"} / 100</dd>
+          <dt>Detected language(s)</dt>
+          <dd class="mono">${(r.detectedLanguages || []).join(", ") || "-"}</dd>
+          <dt>Ended on negative note</dt>
+          <dd>${r.endedOnNegative ? "Yes" : "No"}</dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <h4 style="margin:0 0 14px; font-family: var(--font-mono); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft);">Ticket audit</h4>
+        ${renderAudit(r.audit, r.ticketDescription)}
+      </div>
+
+      <div class="card">
+        <h4 style="margin:0 0 14px; font-family: var(--font-mono); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft);">Speaker breakdown</h4>
+        ${renderSpeakers(r.perSpeaker)}
+      </div>
+
+      <div class="card">
+        <h4 style="margin:0 0 14px; font-family: var(--font-mono); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft);">Transcript</h4>
+        <div class="transcript">${renderTranscript(r.transcriptText)}</div>
+      </div>
+    `;
+  } catch (err) {
+    content.innerHTML = `<p class="empty-state">Could not load this call: ${err.message}</p>`;
+  }
+}
+
+loadCall();
+</script>
+
+</body>
+</html>

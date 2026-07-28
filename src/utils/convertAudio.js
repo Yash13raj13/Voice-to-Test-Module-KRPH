@@ -1,10 +1,12 @@
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
+import ffprobePath from "ffprobe-static";
 import path from "path";
 import os from "os";
 import fs from "fs";
 
 ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfprobePath(ffprobePath.path);
 
 /**
  * Converts any input audio file (mp3, m4a, ogg, etc.) into a mono,
@@ -21,12 +23,25 @@ export function convertToWav16k(inputPath) {
   );
 
   return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(inputPath, (err, metadata) => {
+      if (err) {
+        console.log("Could not read input file duration:", err.message);
+      } else {
+        console.log("Input file duration (seconds):", metadata.format.duration);
+      }
+    });
+
     ffmpeg(inputPath)
       .audioChannels(1)
       .audioFrequency(16000)
       .audioCodec("pcm_s16le") // LINEAR16
       .format("wav")
-      .on("end", () => resolve(outputPath))
+      .on("end", () => {
+        ffmpeg.ffprobe(outputPath, (err, metadata) => {
+          if (!err) console.log("Converted file duration (seconds):", metadata.format.duration);
+          resolve(outputPath);
+        });
+      })
       .on("error", (err) => reject(new Error(`Audio conversion failed: ${err.message}`)))
       .save(outputPath);
   });

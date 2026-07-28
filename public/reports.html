@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports - Call Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a href="/index.html" class="wordmark">Call<span>Ledger</span></a>
+    <nav class="tabs">
+      <a href="/index.html">Analyze</a>
+      <a href="/reports.html" class="active">Reports</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1 class="page-title">Call reports</h1>
+  <p class="page-subtitle">Every call analyzed so far, most recent first.</p>
+
+  <div class="card">
+    <table class="ledger">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Date</th>
+          <th>Language</th>
+          <th>Tone</th>
+          <th>Handling</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="reportsBody">
+        <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function toneBadge(tone) {
+  const cls = tone === "positive" ? "positive" : tone === "negative" ? "negative" : "neutral";
+  return `<span class="tone ${cls}">${tone || "unknown"}</span>`;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+async function loadReports() {
+  const body = document.getElementById("reportsBody");
+  try {
+    const res = await fetch("/api/reports");
+    const reports = await res.json();
+
+    if (reports.length === 0) {
+      body.innerHTML = `<tr><td colspan="6" class="empty-state">No calls analyzed yet. <a href="/index.html">Analyze one</a>.</td></tr>`;
+      return;
+    }
+
+    body.innerHTML = reports.map((r) => `
+      <tr>
+        <td>${r.fileName || r.audioFile || "-"}</td>
+        <td class="mono">${formatDate(r.createdAt)}</td>
+        <td class="mono">${(r.detectedLanguages || []).join(", ") || "-"}</td>
+        <td>${toneBadge(r.overallTone)}</td>
+        <td class="mono">${r.handlingScore ?? "-"}</td>
+        <td><a href="/call.html?id=${encodeURIComponent(r.id)}">View &rarr;</a></td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="6" class="empty-state">Could not load reports: ${err.message}</td></tr>`;
+  }
+}
+
+loadReports();
+</script>
+
+</body>
+</html>

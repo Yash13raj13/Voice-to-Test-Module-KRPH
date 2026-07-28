@@ -1,107 +1,78 @@
-import speech from "@google-cloud/speech";
-import { convertToWav16k, cleanupTempFile } from "../utils/convertAudio.js";
-import { uploadToGCS, deleteFromGCS } from "../utils/gcsUpload.js";
+import { SarvamAIClient } from "sarvamai";
+import fs from "fs/promises";
+import path from "path";
 
-const client = new speech.SpeechClient();
+const client = new SarvamAIClient({
+  apiSubscriptionKey: process.env.SARVAM_API_KEY,
+});
 
 /**
- * Transcribes an audio file with speaker diarization and support for
- * mixed English/Hindi calls (via alternativeLanguageCodes).
+ * Transcribes an audio file with speaker diarization via Sarvam AI's
+ * Batch Speech-to-Text API (model: saaras:v3), which is built for
+ * Indian-language call audio and Hindi/English code-mixing.
  *
- * Handles any input format (mp3, m4a, etc.) by converting to LINEAR16
- * WAV first, and any length by uploading to Google Cloud Storage before
- * running long-running recognition.
+ * Replaces the previous Google Cloud Speech-to-Text V2 implementation,
+ * which could not reliably separate speakers on Hindi audio (confirmed
+ * in output/1785223976691-91280119.status.json - the whole call
+ * collapsed into a single speaker).
+ *
+ * NOTE ON JS SDK METHOD NAMES: Sarvam's docs show the batch job workflow
+ * (create_job / upload_files / start / wait_until_complete /
+ * get_file_results / download_outputs) using their Python SDK. The npm
+ * package "sarvamai" is generated from the same spec via Fern and should
+ * mirror this in camelCase, but I could not fully confirm the JS names
+ * from their docs site. After `npm install`, check node_modules/sarvamai's
+ * TypeScript types (or your editor's autocomplete on
+ * `client.speechToTextJob`) and adjust the calls below if they differ.
  *
  * @param {string} audioPath - local path to the source audio file
- * @returns {Promise<{utterances: {speaker: number, text: string}[], text: string, languageCodes: string[]}>}
+ * @returns {Promise<{utterances: {speaker: string, text: string}[], text: string, languageCodes: string[]}>}
  */
 export async function transcribeAudio(audioPath) {
   console.log("Original file:", audioPath);
 
-  const wavPath = await convertToWav16k(audioPath);
-  console.log("Converted file path:", wavPath);
+  const job = await client.speechToTextJob.createJob({
+    model: "saaras:v3",
+    mode: "transcribe",
+    // languageCode intentionally omitted to let Sarvam auto-detect - useful
+    // for mixed Hindi/English calls. Pass e.g. languageCode: "hi-IN" if you
+    // want to force a single language instead - worth A/B testing both
+    // against real sample calls before deciding.
+    withDiarization: true,
+    numSpeakers: 2, // agent + one caller; bump for multi-party/escalation calls
+  });
 
-  let gcsUri;
+  await job.uploadFiles({ filePaths: [audioPath] });
+  await job.start();
+  await job.waitUntilComplete();
 
-  try {
-    gcsUri = await uploadToGCS(wavPath);
-    console.log("Uploaded to GCS:", gcsUri);
-
-    const config = {
-      encoding: "LINEAR16",
-      sampleRateHertz: 16000,
-      languageCode: "en-IN", // primary language
-      alternativeLanguageCodes: ["hi-IN"], // handles Hindi / code-switching
-      enableAutomaticPunctuation: true,
-      diarizationConfig: {
-        enableSpeakerDiarization: true, // required: separates agent vs. caller
-        minSpeakerCount: 2,
-        maxSpeakerCount: 2,
-      },
-      model: "latest_long", // better accuracy for conversational speech than "default"
-      useEnhanced: true,
-      speechContexts: [
-        {
-          // Domain-specific vocabulary Google should weight higher.
-          // Expand this list with real terms your org's agents actually use.
-          phrases: [
-            "insurance", "policy", "premium", "claim", "crop insurance",
-            "farmer", "coverage", "corporate insurance", "renewal",
-            "policyholder", "sum insured", "beema", "fasal", "kisan",
-          ],
-          boost: 15,
-        },
-      ],
-    };
-
-    const request = {
-      audio: { uri: gcsUri },
-      config,
-    };
-
-    const [operation] = await client.longRunningRecognize(request);
-    const [response] = await operation.promise();
-
-    const result = buildUtterances(response);
-    console.log("Unique speaker tags found:", [...new Set(result.utterances.map((u) => u.speaker))]);
-    console.log("Utterance count:", result.utterances.length);
-
-    return result;
-  } finally {
-    cleanupTempFile(wavPath);
-    if (gcsUri) await deleteFromGCS(gcsUri);
-  }
-}
-
-/**
- * Google returns word-level speaker tags rather than ready-made
- * utterances, so we group consecutive same-speaker words into turns.
- */
-function buildUtterances(response) {
-  const results = response.results || [];
-  if (results.length === 0) {
-    return { utterances: [], text: "", languageCodes: [] };
+  const fileResults = await job.getFileResults();
+  if (fileResults.failed?.length) {
+    const failure = fileResults.failed[0];
+    throw new Error(`Sarvam job failed for ${audioPath}: ${failure.errorMessage}`);
   }
 
-  const lastResult = results[results.length - 1];
-  const words = lastResult.alternatives[0].words || [];
+  const outputDir = "./output/raw";
+  await fs.mkdir(outputDir, { recursive: true });
+  await job.downloadOutputs({ outputDir });
 
-  const utterances = [];
-  let current = null;
+  // Downloaded JSON shape (per Sarvam docs):
+  // { request_id, transcript, timestamps: {...}, diarized_transcript: { entries: [...] }, language_code }
+  const outputFileName = fileResults.successful[0].fileName; // e.g. "0.json"
+  const raw = JSON.parse(await fs.readFile(path.join(outputDir, outputFileName), "utf-8"));
 
-  for (const w of words) {
-    const speaker = w.speakerTag;
-    if (!current || current.speaker !== speaker) {
-      if (current) utterances.push(current);
-      current = { speaker, text: w.word };
-    } else {
-      current.text += ` ${w.word}`;
-    }
-  }
-  if (current) utterances.push(current);
+  const entries = raw.diarized_transcript?.entries ?? [];
+  console.log("Speaker turns found:", entries.length);
+  console.log("Unique speaker IDs:", [...new Set(entries.map((e) => e.speaker_id))]);
 
-  const text = results.map((r) => r.alternatives[0].transcript).join(" ");
-  const languageCodes = [...new Set(results.map((r) => r.languageCode).filter(Boolean))];
+  const utterances = entries.map((e) => ({
+    speaker: e.speaker_id, // e.g. "0", "1" - matches the {speaker, text} shape analyze.js/formatTranscript.js already expect
+    text: e.transcript,
+  }));
 
-  return { utterances, text, languageCodes };
+  return {
+    utterances,
+    text: raw.transcript || "",
+    languageCodes: raw.language_code ? [raw.language_code] : [],
+  };
 }

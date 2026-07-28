@@ -1,0 +1,114 @@
+[
+  {
+    "id": "1785224011611-951964",
+    "fileName": "CTC_9509243632_313198_20251105-101126.wav",
+    "createdAt": "2026-07-28T07:33:31.611Z",
+    "transcriptText": "Speaker 1: नमस्कार प्रधानमंत्री फसल बीमा योजना हेल्पलाइन। करना चाहती हूं आपको उनका हां या ना में जवाब देना है, ठीक है। सर ठीक है। मेरा आपसे पहले क्वेश्चन यह है। आप प्रधानमंत्री फसल बीमा योजना के लाभों से अवगत हैं। बिना लोन लेकर खेती करते हैं। आपको आसान लगता है, मुश्किल लगता है, कठिन लगता है सर्टिफिकेट आपको प्राप्त होता है। क्या वह पसंद खराब हो जाती है तो सर्वे करके लेके जाते हैं, उसमें क्या है? मुश्किल लगता है, कठिन लगता है। मतलब? मतलब? ही नहीं है तभी तो कंप्लेन करते हैं तो? 7 नंबर पर कॉल करते हैं तो उनसे बात करके आपको संतुष्टि मिलती है या अस्ति मिलती है। अपने प्रधानमंत्री फसल बीमा योजना।",
+    "audioFile": "uploads\\1785223976691-91280119.wav",
+    "detectedLanguages": [
+      "hi-in"
+    ],
+    "agentSpeakerLabel": 1,
+    "perSpeaker": {
+      "1": {
+        "role": "agent",
+        "utteranceCount": 1,
+        "sentimentCounts": {
+          "POSITIVE": 0,
+          "NEUTRAL": 1,
+          "NEGATIVE": 0
+        }
+      }
+    },
+    "overallTone": "neutral",
+    "handlingScore": 100,
+    "endedOnNegative": false,
+    "ticketDescription": "",
+    "audit": {
+      "verdict": "not_checked",
+      "confidence": null,
+      "explanation": "No ticket description was provided for this call."
+    }
+  },
+  {
+    "id": "1785223060563-880751",
+    "fileName": "06-17 Prac 4 Part1 Car Trouble.mp3",
+    "createdAt": "2026-07-28T07:17:40.563Z",
+    "transcriptText": "Speaker 1: जी नमस्ते यहां कोई मैकेनिक है क्या जी बताइए क्या काम है मेरी गाड़ी खराब हो गई है। क्या आप किसी को मेरे साथ भेज सकते हैं? जी जरूर क्यों नहीं आपकी गाड़ी है। कहां यहां से लगभग 1 मेल दूर सड़क के किनारे खड़ी है। गाड़ी में क्या खराबी आ गई है। मुझे नहीं मालूम। मैं गाड़ी चला रहा था कि अचानक गाड़ी से धुआं निकलने लगा। इंजन से जलने की बदबू सी आ रही थी। गाड़ी अजीब सी आवाज भी कर रही थी। गाड़ी सड़क के किनारे है यह सड़क के बीच सड़क के किनारे। आप दो मिनट बैठी मैं किसी को आपके साथ भेजता हूं।",
+    "audioFile": "uploads\\1785223037833-714613684.mp3",
+    "detectedLanguages": [
+      "hi-in"
+    ],
+    "agentSpeakerLabel": 1,
+    "perSpeaker": {
+      "1": {
+        "role": "agent",
+        "utteranceCount": 1,
+        "sentimentCounts": {
+          "POSITIVE": 0,
+          "NEUTRAL": 0,
+          "NEGATIVE": 1
+        }
+      }
+    },
+    "overallTone": "negative",
+    "handlingScore": 0,
+    "endedOnNegative": true,
+    "ticketDescription": "it is a car complain and the person needed a mechanic and he got it",
+    "audit": {
+      "verdict": "addressed",
+      "confidence": 95,
+      "explanation": "The transcript shows the customer reporting a broken-down car with engine trouble and smoke, and the agent confirming they are sending a mechanic with them immediately, which directly addresses the ticket description."
+    }
+  },
+  {
+    "id": "1785217673084-90369",
+    "fileName": "7297040229_C1759320172-973478.mp3-_1_.mp3",
+    "createdAt": "2026-07-28T05:47:53.084Z",
+    "transcriptText": "Speaker 1: Pradhanmantri fasal Bima Yojana Mein aapka swagat hai aapke bhasha mein baat karna Pasand Karenge Hindi ya Marathi aapke bhasha mein baat karna Pasand Karenge Hindi ya Marathi Kripya line per Bane Rahe Ham aapka vivaran prapt kar rahe hain aapke dwara pradan kiye Gaye vivaran ke Aadhar per Hamare record mein koi sambandh policy Nahin mil rahi hai. aaj ki Ham aapse sahayata kar Saken kripya kharif fasal Ke Liye Ek dabaen Aur Rabi fasal Ke Liye Do dabaen Ya line per Bane Rahe Ham aapka vivaran prapt kar rahe hain kripya aap line per Bane Rahe Ham Aapke Sahayak Ta ke liye aap bhi call ko Apne live agent ko Trump per kar rahe hain.",
+    "audioFile": "uploads\\1785217648922-185696371.mp3",
+    "detectedLanguages": [
+      "en-in"
+    ],
+    "agentSpeakerLabel": 1,
+    "perSpeaker": {
+      "1": {
+        "role": "agent",
+        "utteranceCount": 1,
+        "sentimentCounts": {
+          "POSITIVE": 0,
+          "NEUTRAL": 1,
+          "NEGATIVE": 0
+        }
+      }
+    },
+    "overallTone": "neutral",
+    "handlingScore": 100,
+    "endedOnNegative": false
+  },
+  {
+    "id": "1785217232970-705047",
+    "fileName": "06-17 Prac 4 Part1 Car Trouble.mp3",
+    "createdAt": "2026-07-28T05:40:32.970Z",
+    "transcriptText": "Speaker 1: जी नमस्ते यहां कोई मैकेनिक है क्या जी बताइए क्या काम है मेरी गाड़ी खराब हो गई है। क्या आप किसी को मेरे साथ भेज सकते हैं? जी जरूर क्यों नहीं आपकी गाड़ी है। कहां यहां से लगभग 1 मेल दूर सड़क के किनारे खड़ी है। गाड़ी में क्या खराबी आ गई है। मुझे नहीं मालूम। मैं गाड़ी चला रहा था कि अचानक गाड़ी से धुआं निकलने लगा। इंजन से जलने की बदबू सी आ रही थी। गाड़ी अजीब सी आवाज भी कर रही थी। गाड़ी सड़क के किनारे है यह सड़क के बीच सड़क के किनारे। आप दो मिनट बैठी मैं किसी को आपके साथ भेजता हूं।",
+    "audioFile": "uploads\\1785217202129-462545343.mp3",
+    "detectedLanguages": [
+      "hi-in"
+    ],
+    "agentSpeakerLabel": 1,
+    "perSpeaker": {
+      "1": {
+        "role": "agent",
+        "utteranceCount": 1,
+        "sentimentCounts": {
+          "POSITIVE": 0,
+          "NEUTRAL": 1,
+          "NEGATIVE": 0
+        }
+      }
+    },
+    "overallTone": "neutral",
+    "handlingScore": 100,
+    "endedOnNegative": false
+  }
+]

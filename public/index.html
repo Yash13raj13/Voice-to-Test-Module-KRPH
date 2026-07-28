@@ -2,188 +2,63 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Call Analysis Dashboard</title>
-<style>
-  :root {
-    --bg: #0f1115;
-    --card: #171a21;
-    --border: #262a33;
-    --text: #e6e8eb;
-    --text-muted: #8b909c;
-    --accent: #4f8cff;
-    --green: #34d399;
-    --amber: #fbbf24;
-    --red: #f87171;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    padding: 32px;
-  }
-  h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
-  p.subtitle { color: var(--text-muted); font-size: 14px; margin-top: 0; margin-bottom: 28px; }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-
-  .upload-row { display: flex; gap: 12px; align-items: center; }
-  input[type="file"] { color: var(--text-muted); font-size: 13px; }
-  button {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 8px 18px;
-    border-radius: 8px;
-    font-size: 14px;
-    cursor: pointer;
-  }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .status-bar { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 13px; color: var(--text-muted); }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--text-muted);
-    transition: background 0.2s;
-  }
-  .status-dot.active { background: var(--accent); }
-  .status-dot.done { background: var(--green); }
-  .status-dot.error { background: var(--red); }
-  .status-steps { display: flex; gap: 18px; }
-  .status-step { display: flex; align-items: center; gap: 6px; }
-
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th {
-    text-align: left;
-    color: var(--text-muted);
-    font-weight: 500;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
-  tr:last-child td { border-bottom: none; }
-
-  .badge {
-    padding: 3px 9px;
-    border-radius: 20px;
-    font-size: 12px;
-    display: inline-block;
-  }
-  .badge.positive { background: rgba(52,211,153,0.15); color: var(--green); }
-  .badge.neutral  { background: rgba(139,144,156,0.15); color: var(--text-muted); }
-  .badge.negative { background: rgba(248,113,113,0.15); color: var(--red); }
-
-  .empty-state { color: var(--text-muted); font-size: 13px; padding: 20px 0; text-align: center; }
-
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal-box {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 600px;
-    width: 90%;
-    max-height: 70vh;
-    overflow-y: auto;
-  }
-  .modal-box pre {
-    white-space: pre-wrap;
-    font-family: inherit;
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--text);
-  }
-  .modal-close {
-    float: right;
-    background: transparent;
-    color: var(--text-muted);
-    padding: 4px 10px;
-  }
-  .link-btn {
-    background: transparent;
-    color: var(--accent);
-    padding: 0;
-    text-decoration: underline;
-    font-size: 13px;
-    cursor: pointer;
-  }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analyze - Call Records</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-<h1>Call analysis dashboard</h1>
-<p class="subtitle">Upload agent call recordings to transcribe and score tone &amp; handling quality.</p>
-
-<div class="card">
-  <div class="upload-row">
-    <input type="file" id="audioFile" accept="audio/*">
-    <button id="uploadBtn">Analyze call</button>
+<div class="topbar">
+  <div class="topbar-inner">
+    <a href="/index.html" class="wordmark">Call<span>Ledger</span></a>
+    <nav class="tabs">
+      <a href="/index.html" class="active">Analyze</a>
+      <a href="/reports.html">Reports</a>
+    </nav>
   </div>
+</div>
 
-  <div class="status-bar" id="statusBar" style="display:none;">
-    <div class="status-steps">
+<div class="wrap">
+  <h1 class="page-title">Analyze a call</h1>
+  <p class="page-subtitle">Upload a recording to transcribe it and score tone &amp; handling quality.</p>
+
+  <div class="card">
+    <div class="upload-row" style="margin-bottom: 18px;">
+      <input type="file" id="audioFile" accept="audio/*">
+    </div>
+
+    <label for="ticketDescription" style="display:block; font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); margin-bottom: 8px;">
+      Ticket / complaint description (optional)
+    </label>
+    <textarea id="ticketDescription" rows="3" placeholder="Paste the customer's original complaint or ticket description here, to check whether this call actually addressed it..." style="width:100%; font-family: var(--font-body); font-size: 0.88rem; padding: 10px 12px; border: 1px solid var(--line); border-radius: 3px; background: var(--paper); color: var(--ink); resize: vertical;"></textarea>
+
+    <div style="margin-top: 16px;">
+      <button id="uploadBtn">Analyze call</button>
+    </div>
+
+    <div class="status-bar" id="statusBar" style="display:none;">
       <div class="status-step"><span class="status-dot" id="dot-upload"></span> Uploading</div>
       <div class="status-step"><span class="status-dot" id="dot-transcribe"></span> Transcribing</div>
       <div class="status-step"><span class="status-dot" id="dot-analyze"></span> Analyzing</div>
       <div class="status-step"><span class="status-dot" id="dot-done"></span> Done</div>
     </div>
   </div>
-</div>
 
-<div class="card">
-  <table id="callsTable">
-    <thead>
-      <tr>
-        <th>File</th>
-        <th>Language(s)</th>
-        <th>Tone</th>
-        <th>Handling score</th>
-        <th>Transcript</th>
-      </tr>
-    </thead>
-    <tbody id="callsBody">
-      <tr><td colspan="5" class="empty-state">No calls analyzed yet.</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<div class="modal-overlay" id="transcriptModal">
-  <div class="modal-box">
-    <button class="modal-close" id="modalClose">✕</button>
-    <h3 id="modalTitle" style="margin-top:0;"></h3>
-    <pre id="modalTranscript"></pre>
+  <div class="card" id="resultCard" style="display:none;">
+    <p style="margin:0 0 14px; color: var(--ink-soft); font-size: 0.9rem;">Call processed.</p>
+    <a id="resultLink" href="#" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--forest-dark); border-bottom: 1px solid var(--gold); text-decoration: none;">View full report &rarr;</a>
   </div>
 </div>
 
 <script>
 const fileInput = document.getElementById("audioFile");
+const ticketDescription = document.getElementById("ticketDescription");
 const uploadBtn = document.getElementById("uploadBtn");
 const statusBar = document.getElementById("statusBar");
-const callsBody = document.getElementById("callsBody");
-
-const modal = document.getElementById("transcriptModal");
-const modalTitle = document.getElementById("modalTitle");
-const modalTranscript = document.getElementById("modalTranscript");
-document.getElementById("modalClose").addEventListener("click", () => modal.classList.remove("open"));
-modal.addEventListener("click", (e) => {
-  if (e.target === modal) modal.classList.remove("open");
-});
+const resultCard = document.getElementById("resultCard");
+const resultLink = document.getElementById("resultLink");
 
 const dots = {
   upload: document.getElementById("dot-upload"),
@@ -195,32 +70,8 @@ const dots = {
 function setStep(step, state) {
   dots[step].className = "status-dot " + state;
 }
-
 function resetStatus() {
   Object.keys(dots).forEach((k) => (dots[k].className = "status-dot"));
-}
-
-function toneBadge(tone) {
-  const cls = tone === "positive" ? "positive" : tone === "negative" ? "negative" : "neutral";
-  return `<span class="badge ${cls}">${tone || "unknown"}</span>`;
-}
-
-function renderRow(fileName, report, transcriptText) {
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <td>${fileName}</td>
-    <td>${(report.detectedLanguages || []).join(", ") || "—"}</td>
-    <td>${toneBadge(report.overallTone)}</td>
-    <td>${report.handlingScore ?? "—"}</td>
-    <td><button class="link-btn">View transcript</button></td>
-  `;
-  row.querySelector(".link-btn").addEventListener("click", () => {
-    modalTitle.textContent = fileName;
-    modalTranscript.textContent = transcriptText || "(empty transcript)";
-    modal.classList.add("open");
-  });
-  if (callsBody.querySelector(".empty-state")) callsBody.innerHTML = "";
-  callsBody.prepend(row);
 }
 
 uploadBtn.addEventListener("click", async () => {
@@ -228,12 +79,14 @@ uploadBtn.addEventListener("click", async () => {
   if (!file) return alert("Choose an audio file first.");
 
   uploadBtn.disabled = true;
+  resultCard.style.display = "none";
   statusBar.style.display = "flex";
   resetStatus();
   setStep("upload", "active");
 
   const formData = new FormData();
   formData.append("audio", file);
+  formData.append("ticketDescription", ticketDescription.value);
 
   try {
     const res = await fetch("/calls", { method: "POST", body: formData });
@@ -242,20 +95,19 @@ uploadBtn.addEventListener("click", async () => {
     setStep("analyze", "active");
 
     const data = await res.json();
-
     if (!res.ok) throw new Error(data.error || "Request failed");
 
     setStep("transcribe", "done");
     setStep("analyze", "done");
     setStep("done", "done");
 
-    renderRow(file.name, data.statusReport, data.transcriptText);
+    resultLink.href = `/call.html?id=${encodeURIComponent(data.id)}`;
+    resultCard.style.display = "block";
   } catch (err) {
     setStep("upload", "error");
     alert("Failed: " + err.message);
   } finally {
     uploadBtn.disabled = false;
-    setTimeout(() => (statusBar.style.display = "none"), 1500);
   }
 });
 </script>
