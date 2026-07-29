@@ -3,6 +3,8 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import http from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { processCall } from "./index.js";
 import { saveReport, listReports, getReport } from "./utils/store.js";
 
@@ -58,5 +60,76 @@ app.get("/api/reports/:id", (req, res) => {
   res.json(record);
 });
 
+// --- Live voice chat: proxies browser audio to Gemini Live API ---
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: "/voice-chat" });
+
+const GEMINI_LIVE_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${process.env.GEMINI_API_KEY}`;
+
+// Model name is our best guess from current docs - if setup fails, the
+// error will be logged below and this is the first thing to check/swap.
+const LIVE_MODEL = "models/gemini-3.1-flash-live-preview";
+
+wss.on("connection", (clientWs) => {
+  console.log("[voice-chat] Browser client connected.");
+  const geminiWs = new WebSocket(GEMINI_LIVE_URL);
+
+  geminiWs.on("open", () => {
+    console.log("[voice-chat] Connected to Gemini Live API, sending setup...");
+    geminiWs.send(JSON.stringify({
+      setup: {
+        model: LIVE_MODEL,
+        generationConfig: { responseModalities: ["AUDIO"] },
+        systemInstruction: {
+          parts: [{
+            text: "You are the voice assistant for KrishiKalyan, an insurance helpline serving farmers with crop and corporate insurance. Speak naturally in whichever language the caller uses - Hindi, English, or a mix. Keep responses short, warm, and clear, like a helpful call center agent. Help with questions about crop insurance, claims, and policies.",
+          }],
+        },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+      },
+    }));
+  });
+
+  geminiWs.on("message", (data) => {
+    // Relay raw Gemini messages straight to the browser.
+    if (clientWs.readyState === clientWs.OPEN) {
+      clientWs.send(data.toString());
+    }
+  });
+
+  geminiWs.on("error", (err) => {
+    console.error("[voice-chat] Gemini WebSocket error:", err.message);
+    clientWs.send(JSON.stringify({ error: `Gemini connection error: ${err.message}` }));
+  });
+
+  geminiWs.on("close", (code, reason) => {
+    console.log("[voice-chat] Gemini WebSocket closed:", code, reason.toString());
+    clientWs.close();
+  });
+
+  clientWs.on("message", (data) => {
+    // Browser sends { type: "audio", data: base64Pcm16 }
+    if (geminiWs.readyState !== geminiWs.OPEN) return;
+    try {
+      const msg = JSON.parse(data.toString());
+      if (msg.type === "audio") {
+        geminiWs.send(JSON.stringify({
+          realtimeInput: {
+            audio: { data: msg.data, mimeType: "audio/pcm;rate=16000" },
+          },
+        }));
+      }
+    } catch (err) {
+      console.error("[voice-chat] Failed to relay client message:", err.message);
+    }
+  });
+
+  clientWs.on("close", () => {
+    console.log("[voice-chat] Browser client disconnected.");
+    geminiWs.close();
+  });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Voice analysis API listening on port ${PORT}`));
+server.listen(PORT, () => console.log(`Voice analysis API listening on port ${PORT}`));

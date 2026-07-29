@@ -69,10 +69,20 @@ function buildUtterances(resultData) {
   console.log("Diarized entries found:", entries.length);
   console.log("Unique speaker ids:", [...new Set(entries.map((e) => e.speaker_id))]);
 
-  const utterances = entries.map((e) => ({
-    speaker: e.speaker_id,
-    text: e.transcript,
-  }));
+  // Map Sarvam's raw speaker ids (e.g. "0", "1") to friendly 1-indexed
+  // labels, in the order each speaker first talks.
+  const speakerMap = new Map();
+  let nextSpeakerNum = 1;
+
+  const utterances = entries.map((e) => {
+    if (!speakerMap.has(e.speaker_id)) {
+      speakerMap.set(e.speaker_id, nextSpeakerNum++);
+    }
+    return {
+      speaker: speakerMap.get(e.speaker_id),
+      text: e.transcript,
+    };
+  });
 
   return {
     utterances,

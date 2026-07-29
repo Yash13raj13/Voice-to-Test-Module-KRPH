@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Analyze - Call Records</title>
+<title>Analyze - KrishiKalyan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
@@ -12,10 +12,11 @@
 
 <div class="topbar">
   <div class="topbar-inner">
-    <a href="/index.html" class="wordmark">Call<span>Ledger</span></a>
+    <a href="/index.html" class="wordmark"><svg class="wordmark-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V6M12 6l-3-3M12 6l3-3M9 10l-3-2M9 10l3 1M15 10l3-2M15 10l-3 1M9 14l-3-2M9 14l3 1M15 14l3-2M15 14l-3 1"/></svg>Krishi<span>Kalyan</span></a>
     <nav class="tabs">
       <a href="/index.html" class="active">Analyze</a>
       <a href="/reports.html">Reports</a>
+      <a href="/voice-chat.html">Voice Assistant</a>
     </nav>
   </div>
 </div>
@@ -35,7 +36,7 @@
     <textarea id="ticketDescription" rows="3" placeholder="Paste the customer's original complaint or ticket description here, to check whether this call actually addressed it..." style="width:100%; font-family: var(--font-body); font-size: 0.88rem; padding: 10px 12px; border: 1px solid var(--line); border-radius: 3px; background: var(--paper); color: var(--ink); resize: vertical;"></textarea>
 
     <div style="margin-top: 16px;">
-      <button id="uploadBtn">Analyze call</button>
+      <button id="uploadBtn"><span class="btn-label" id="uploadBtnLabel">Analyze call</span></button>
     </div>
 
     <div class="status-bar" id="statusBar" style="display:none;">
@@ -56,6 +57,7 @@
 const fileInput = document.getElementById("audioFile");
 const ticketDescription = document.getElementById("ticketDescription");
 const uploadBtn = document.getElementById("uploadBtn");
+const uploadBtnLabel = document.getElementById("uploadBtnLabel");
 const statusBar = document.getElementById("statusBar");
 const resultCard = document.getElementById("resultCard");
 const resultLink = document.getElementById("resultLink");
@@ -74,11 +76,28 @@ function resetStatus() {
   Object.keys(dots).forEach((k) => (dots[k].className = "status-dot"));
 }
 
+// Ripple effect - creates a circular ripple from the click point
+function attachRipple(btn) {
+  btn.addEventListener("click", (e) => {
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const ripple = document.createElement("span");
+    ripple.className = "ripple";
+    ripple.style.width = ripple.style.height = size + "px";
+    ripple.style.left = (e.clientX - rect.left - size / 2) + "px";
+    ripple.style.top = (e.clientY - rect.top - size / 2) + "px";
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 650);
+  });
+}
+attachRipple(uploadBtn);
+
 uploadBtn.addEventListener("click", async () => {
   const file = fileInput.files[0];
   if (!file) return alert("Choose an audio file first.");
 
   uploadBtn.disabled = true;
+  uploadBtnLabel.innerHTML = `<span class="btn-spinner"></span> Analyzing...`;
   resultCard.style.display = "none";
   statusBar.style.display = "flex";
   resetStatus();
@@ -108,6 +127,7 @@ uploadBtn.addEventListener("click", async () => {
     alert("Failed: " + err.message);
   } finally {
     uploadBtn.disabled = false;
+    uploadBtnLabel.textContent = "Analyze call";
   }
 });
 </script>
