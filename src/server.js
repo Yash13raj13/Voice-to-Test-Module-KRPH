@@ -9,6 +9,11 @@ import { processCall } from "./index.js";
 import { saveReport, listReports, getReport } from "./utils/store.js";
 
 const app = express();
+
+app.get("/", (req, res) => {
+  res.sendFile(path.resolve("public/landing.html"));
+});
+
 app.use(express.static("public"));
 
 const storage = multer.diskStorage({
@@ -66,9 +71,15 @@ const wss = new WebSocketServer({ server, path: "/voice-chat" });
 
 const GEMINI_LIVE_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${process.env.GEMINI_API_KEY}`;
 
-// Model name is our best guess from current docs - if setup fails, the
-// error will be logged below and this is the first thing to check/swap.
 const LIVE_MODEL = "models/gemini-3.1-flash-live-preview";
+
+// Pinned so the assistant's vocal identity stays consistent across
+// sessions/reconnects - this does NOT restrict which language it speaks,
+// only which voice character speaks it. Native audio models still switch
+// languages naturally per the systemInstruction below. Try a different
+// name from Google's 30-voice list if this one doesn't fit - all of them
+// work across all supported languages: https://ai.google.dev/gemini-api/docs/live-guide
+const VOICE_NAME = "Charon";
 
 wss.on("connection", (clientWs) => {
   console.log("[voice-chat] Browser client connected.");
@@ -79,7 +90,14 @@ wss.on("connection", (clientWs) => {
     geminiWs.send(JSON.stringify({
       setup: {
         model: LIVE_MODEL,
-        generationConfig: { responseModalities: ["AUDIO"] },
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: VOICE_NAME },
+            },
+          },
+        },
         systemInstruction: {
           parts: [{
             text: "You are the voice assistant for KrishiKalyan, an insurance helpline serving farmers with crop and corporate insurance. Speak naturally in whichever language the caller uses - Hindi, English, or a mix. Keep responses short, warm, and clear, like a helpful call center agent. Help with questions about crop insurance, claims, and policies.",
